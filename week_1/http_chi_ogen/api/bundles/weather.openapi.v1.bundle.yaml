@@ -1,0 +1,185 @@
+openapi: 3.0.3
+info:
+  title: WeatherService API
+  version: 1.0.0
+  description: API для работы с данными о погоде
+tags:
+  - name: Weather
+    description: Операции с данными о погоде — получение и обновление информации
+paths:
+  /api/v1/weather/{city}:
+    parameters:
+      - $ref: '#/components/parameters/city'
+    get:
+      summary: Get weather data for a city
+      operationId: GetWeatherByCity
+      tags:
+        - Weather
+      responses:
+        '200':
+          description: Weather information successfully retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/weather'
+        '400':
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bad_request_error'
+        '404':
+          description: Weather data for specified city not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/not_found_error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/internal_server_error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/generic_error'
+    put:
+      summary: Update or create weather data for a city
+      operationId: UpdateWeatherByCity
+      tags:
+        - Weather
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_weather_request'
+      responses:
+        '200':
+          description: Weather information successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/weather'
+        '400':
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bad_request_error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/internal_server_error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/generic_error'
+components:
+  parameters:
+    city:
+      name: city
+      in: path
+      required: true
+      description: Название города, для которого запрашиваются или обновляются данные о погоде
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+        example: Moscow
+  schemas:
+    generic_error:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: HTTP-код ошибки
+        message:
+          type: string
+          description: Описание ошибки
+    weather:
+      type: object
+      required:
+        - city
+        - temperature
+        - updated_at
+      properties:
+        city:
+          type: string
+          description: Название города
+          minLength: 1
+          maxLength: 100
+          example: Moscow
+        temperature:
+          type: number
+          format: float
+          description: Температура в градусах Цельсия
+          example: 25.5
+        updated_at:
+          type: string
+          format: date-time
+          description: Время последнего обновления данных
+          example: '2023-05-15T10:30:00Z'
+    bad_request_error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: HTTP-код ошибки
+          example: 400
+        message:
+          type: string
+          description: Описание ошибки
+          example: 'Bad Request: Invalid parameter format'
+    not_found_error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: HTTP-код ошибки
+          example: 404
+        message:
+          type: string
+          description: Описание ошибки
+          example: Weather for city 'Unknown' not found
+    internal_server_error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: HTTP-код ошибки
+          example: 500
+        message:
+          type: string
+          description: Описание ошибки
+          example: Internal server error occurred
+    update_weather_request:
+      type: object
+      required:
+        - temperature
+      properties:
+        temperature:
+          type: number
+          format: float
+          description: Температура в градусах Цельсия
+          example: 25.5
+x-ogen:
+  target: ./pkg/openapi/weather/v1
+  package: weather_v1
+  clean: true
