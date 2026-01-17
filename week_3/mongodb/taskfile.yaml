@@ -1,0 +1,44 @@
+version: '3'
+
+# Глобальные переменные проекта
+vars:
+  BIN_DIR: '{{.ROOT_DIR}}/bin'
+
+tasks:
+  docker:build:
+    desc: "Собирает Docker образ на основе Dockerfile"
+    cmds:
+      - |
+        echo "🐳 Собираем Docker образ..."
+        docker build -t microservice-example:latest .
+        echo "✅ Образ успешно собран"
+
+  docker:run:
+    desc: "Запускает собранный Docker образ"
+    cmds:
+      - |
+        echo "🚀 Запускаем Docker образ..."
+        docker run -p 8081:8080 microservice-example:latest
+
+  docker:compose:up:
+    desc: "Запускает Docker Compose"
+    cmds:
+      - |
+        echo "🚀 Запускаем Docker Compose..."
+        docker compose up -d
+
+  docker:compose:build:
+    desc: "Собирает контейнеры Docker Compose с нуля"
+    cmds:
+      - |
+        echo "🔨 Собираем контейнеры Docker Compose..."
+        docker compose build --no-cache
+        echo "✅ Сборка успешно завершена"
+
+  docker:compose:down:
+    desc: "Останавливает и удаляет контейнеры Docker Compose"
+    cmds:
+      - |
+        echo "🛑 Останавливаем контейнеры Docker Compose..."
+        docker compose down -v
+        echo "✅ Контейнеры остановлены"

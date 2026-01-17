@@ -1,0 +1,20 @@
+version: '3'
+
+vars:
+  BIN_DIR: '{{.ROOT_DIR}}/bin'
+
+tasks:
+  docker:build:
+    desc: "Собирает Docker образ на основе Dockerfile"
+    cmds:
+      - |
+        echo "🐳 Собираем Docker образ..."
+        docker build -t microservice-example:latest .
+        echo "✅ Образ успешно собран"
+
+  docker:run:
+    desc: "Запускает собранный Docker образ"
+    cmds:
+      - |
+        echo "🚀 Запускаем Docker образ..."
+        docker run -p 8081:8080 microservice-example:latest

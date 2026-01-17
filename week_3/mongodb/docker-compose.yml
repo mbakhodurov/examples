@@ -1,0 +1,30 @@
+services:
+  mongodb:
+    image: mongo:7.0.5
+    container_name: my_mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME} # Логин для MongoDB из .env
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD} # Пароль для MongoDB из .env
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE} # Создаем базу данных при инициализации
+    ports:
+      - "${MONGO_PORT}:27017" # Пробрасываем порт: внешний из .env, внутренний фиксированный
+    volumes:
+      - mongodata:/data/db # Volume для сохранности данных базы
+    healthcheck: # Проверяем "здоровье" контейнера базы
+      test: [
+          "CMD-SHELL",
+          "echo 'db.runCommand({ ping: 1 }).ok' | mongosh --quiet -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase ${MONGO_AUTH_DB}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped # Автоматический перезапуск контейнера, кроме ручной остановки
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge # Обычная bridge-сеть Docker
+
+volumes:
+  mongodata:
