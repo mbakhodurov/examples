@@ -1,0 +1,25 @@
+package v1
+
+import (
+	"context"
+	"errors"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	ufo_v1 "github.com/mbakhodurov/examples/week_5/kafka/clean_arch/shared/pkg/proto/ufo/v1"
+	"github.com/mbakhodurov/examples/week_5/kafka/clean_arch/ufo/internal/model"
+)
+
+func (a *api) Delete(ctx context.Context, req *ufo_v1.DeleteRequest) (*emptypb.Empty, error) {
+	err := a.ufoService.Delete(ctx, req.GetUuid())
+	if err != nil {
+		if errors.Is(err, model.ErrSightingNotFound) {
+			return nil, status.Errorf(codes.NotFound, "sighting with UUID %s not found", req.GetUuid())
+		}
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
