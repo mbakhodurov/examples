@@ -18,14 +18,14 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bfm99garoqhoga"
+        "uid": "bfpt1uzqrmdc0a"
       },
       "fieldConfig": {
         "defaults": {
@@ -103,10 +103,10 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bfm99garoqhoga"
+            "uid": "bfpt1uzqrmdc0a"
           },
           "editorMode": "code",
-          "expr": "rate(my_space_grpc_my_app_requests_total[5s])",
+          "expr": "rate(my_space_grpc_my_app_request_total[5m])",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -119,7 +119,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bfm99garoqhoga"
+        "uid": "bfpt1uzqrmdc0a"
       },
       "fieldConfig": {
         "defaults": {
@@ -228,7 +228,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bfm99garoqhoga"
+            "uid": "bfpt1uzqrmdc0a"
           },
           "editorMode": "code",
           "expr": "rate(my_space_grpc_my_app_responses_total[10s])",
@@ -244,7 +244,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bfm99garoqhoga"
+        "uid": "bfpt1uzqrmdc0a"
       },
       "fieldConfig": {
         "defaults": {
@@ -353,7 +353,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bfm99garoqhoga"
+            "uid": "bfpt1uzqrmdc0a"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.9,\n    sum(rate(my_space_grpc_my_app_histogram_response_time_seconds_bucket[10s])) by (le, status)\n)",
@@ -365,7 +365,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bfm99garoqhoga"
+            "uid": "bfpt1uzqrmdc0a"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.5,\n    sum(rate(my_space_grpc_my_app_histogram_response_time_seconds_bucket[10s])) by (le, status)\n)",
@@ -393,7 +393,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Service overview",
+  "title": "easy_metrics",
   "uid": "b6b656b1-d42c-454d-b033-a0be8019db6f",
   "version": 2,
   "weekStart": ""

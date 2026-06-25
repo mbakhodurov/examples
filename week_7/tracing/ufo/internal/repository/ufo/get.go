@@ -17,7 +17,7 @@ func (r *repository) Get(ctx context.Context, uuid string) (model.Sighting, erro
 
 	if err := r.collection.FindOne(
 		ctx,
-		bson.M{"uuid": uuid},
+		bson.M{"_id": uuid},
 	).Decode(&repoSighting); err != nil {
 
 		if errors.Is(err, mongo.ErrNoDocuments) {

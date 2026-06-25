@@ -8,6 +8,7 @@ vars:
   PROTOC_GEN_VALIDATE_VERSION: 'v1.2.1'
   MOCKERY_VERSION: 'v2.53.3'
   ENVSUBST_VERSION: 'v1.4.3'
+  GRPCURL_VERSION: 'v1.9.3'
 
   BIN_DIR: '{{.ROOT_DIR}}/bin'
   BUF: '{{.BIN_DIR}}/buf'
@@ -17,6 +18,8 @@ vars:
   PROTOC_GEN_VALIDATE: '{{.BIN_DIR}}/protoc-gen-validate'
   MOCKERY: "{{.BIN_DIR}}/mockery"
   ENVSUBST: '{{.BIN_DIR}}/envsubst'
+  GRPCURL: '{{.BIN_DIR}}/grpcurl'
+  GRPC_SERVER_ADDR: 'localhost:50051'
   ENVDIR: '{{.ROOT_DIR}}/deploy/env'
 
   MODULES: ufo platform
@@ -83,6 +86,17 @@ tasks:
         echo "🏗️ Генерируем Go код из .proto..."
         {{.BUF}} generate
 
+  grpcurl:install:
+    desc: "Устанавливает grpcurl в каталог bin"
+    cmds:
+      - |
+        [ -f {{.GRPCURL}} ] || {
+          echo '📦 Устанавливаем grpcurl {{.GRPCURL_VERSION}}...'
+          GOBIN={{.BIN_DIR}} go install github.com/fullstorydev/grpcurl/cmd/grpcurl@{{.GRPCURL_VERSION}}
+        }
+    status:
+      - test -x {{.GRPCURL}}
+
   gen:
     desc: "Генерирует код из всех спецификаций (proto + OpenAPI)"
     cmds:
@@ -139,13 +153,126 @@ tasks:
     desc: Поднять все сервисы по очереди вместе с зависимостями
     cmds:
       - task up-core
-      # - task up-ufo
+      - task up-ufo
 
   down-all:
     desc: Остановить и удалить все сервисы по очереди вместе с зависимостями
     cmds:
       - task down-core
       - task down-ufo
+
+  # === gRPC тестирование через grpcurl ===
+
+  grpc:test:create:
+    desc: "Тестирует создание наблюдения НЛО"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "🛸 Создаем новое наблюдение НЛО..."
+      - |
+        {{.GRPCURL}} -plaintext -d '{
+          "info": {
+            "observed_at": "2024-01-15T20:30:00Z",
+            "location": "Москва, Красная площадь",
+            "description": "Яркий светящийся объект треугольной формы",
+            "color": "зеленый",
+            "sound": false,
+            "duration_seconds": 120
+          }
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Create
+
+  grpc:test:get:
+    desc: "Тестирует получение наблюдения НЛО по UUID"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "🔍 Получаем наблюдение НЛО по UUID..."
+      - echo "⚠️  Замените UUID на реальный из результата Create:"
+      - |
+        {{.GRPCURL}} -plaintext -d '{
+          "uuid": "REPLACE_WITH_REAL_UUID"
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Get
+
+  grpc:test:update:
+    desc: "Тестирует обновление наблюдения НЛО"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "✏️  Обновляем наблюдение НЛО..."
+      - echo "⚠️  Замените UUID на реальный из результата Create:"
+      - |
+        {{.GRPCURL}} -plaintext -d '{
+          "uuid": "REPLACE_WITH_REAL_UUID",
+          "update_info": {
+            "location": "Санкт-Петербург, Дворцовая площадь",
+            "description": "Обновленное описание: объект изменил форму",
+            "color": "синий",
+            "duration_seconds": 180
+          }
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Update
+
+  grpc:test:delete:
+    desc: "Тестирует мягкое удаление наблюдения НЛО"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "🗑️  Удаляем наблюдение НЛО (мягкое удаление)..."
+      - echo "⚠️  Замените UUID на реальный из результата Create:"
+      - |
+        {{.GRPCURL}} -plaintext -d '{
+          "uuid": "REPLACE_WITH_REAL_UUID"
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Delete
+
+  grpc:test:all:
+    desc: "Запускает полный цикл тестирования gRPC API"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "🚀 Запускаем полный цикл тестирования UFO gRPC API..."
+      - echo ""
+      - echo "🛸 Создаем тестовое наблюдение..."
+      - |
+        UUID=$({{.GRPCURL}} -plaintext -d '{
+          "info": {
+            "observed_at": "2024-01-15T20:30:00Z",
+            "location": "Тестовая локация",
+            "description": "Автоматический тест gRPC API",
+            "color": "красный",
+            "sound": true,
+            "duration_seconds": 60
+          }
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Create | grep '"uuid"' | cut -d'"' -f4)
+        
+        if [ -n "$UUID" ]; then
+          echo "✅ Создано наблюдение с UUID: $UUID"
+          
+          echo ""
+          echo "🔍 Получаем созданное наблюдение..."
+          {{.GRPCURL}} -plaintext -d "{\"uuid\": \"$UUID\"}" {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Get
+          
+          echo ""
+          echo "✏️  Обновляем наблюдение..."
+          {{.GRPCURL}} -plaintext -d "{
+            \"uuid\": \"$UUID\",
+            \"update_info\": {
+              \"description\": \"Обновленное описание через автотест\",
+              \"color\": \"фиолетовый\"
+            }
+          }" {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Update
+          
+          echo ""
+          echo "🔍 Проверяем обновленное наблюдение..."
+          {{.GRPCURL}} -plaintext -d "{\"uuid\": \"$UUID\"}" {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Get
+          
+          echo ""
+          echo "🗑️  Удаляем наблюдение..."
+          {{.GRPCURL}} -plaintext -d "{\"uuid\": \"$UUID\"}" {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Delete
+          
+          echo ""
+          echo "🔍 Проверяем удаленное наблюдение (должно содержать deleted_at)..."
+          {{.GRPCURL}} -plaintext -d "{\"uuid\": \"$UUID\"}" {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Get
+          
+          echo ""
+          echo "✅ Полный цикл тестирования завершен!"
+        else
+          echo "❌ Не удалось создать наблюдение"
+          exit 1
+        fi
 
   env:install-envsubst:
     desc: "Устанавливает envsubst в bin/"
@@ -181,3 +308,142 @@ tasks:
         # Передаем список сервисов в виде строки с разделителями-запятыми
         export SERVICES="{{.SERVICES}}"
         ENV_SUBST={{.ENVSUBST}} "$SCRIPT"
+
+  # === Тестирование трейсинга ===
+
+  tracing:test:create-triangle:
+    desc: "Создает наблюдение треугольного объекта для тестирования трейсинга"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "🛸 Создаем треугольный объект для трейсинга..."
+      - |
+        {{.GRPCURL}} -plaintext -d '{
+          "info": {
+            "observed_at": "2024-01-15T21:00:00Z",
+            "location": "Санкт-Петербург",
+            "description": "Большой треугольный объект",
+            "color": "красный",
+            "sound": false,
+            "duration_seconds": 600
+          }
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Create
+
+  tracing:test:create-saucer:
+    desc: "Создает наблюдение классической тарелки для тестирования трейсинга"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "🛸 Создаем классическую тарелку для трейсинга..."
+      - |
+        {{.GRPCURL}} -plaintext -d '{
+          "info": {
+            "observed_at": "2024-01-15T22:00:00Z",
+            "location": "Москва",
+            "description": "Классическая летающая тарелка в форме диска",
+            "color": "белый",
+            "sound": true,
+            "duration_seconds": 180
+          }
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Create
+
+  tracing:test:analyze:
+    desc: "Анализирует наблюдение по UUID (создает полную цепочку трейсов)"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "🔍 Анализируем наблюдение (замените UUID на реальный)..."
+      - echo "⚠️  Замените UUID на реальный из результата Create:"
+      - |
+        {{.GRPCURL}} -plaintext -d '{
+          "uuid": "REPLACE_WITH_REAL_UUID"
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/AnalyzeSighting
+
+  tracing:test:full-cycle:
+    desc: "Полный цикл тестирования трейсинга: создание + анализ"
+    deps: [ grpcurl:install ]
+    cmds:
+      - echo "🚀 Запускаем полный цикл тестирования трейсинга..."
+      - echo ""
+      - echo "🛸 Создаем треугольный объект..."
+      - |
+        UUID1=$({{.GRPCURL}} -plaintext -d '{
+          "info": {
+            "observed_at": "2024-01-15T21:00:00Z",
+            "location": "Санкт-Петербург",
+            "description": "Большой треугольный объект",
+            "color": "красный",
+            "sound": false,
+            "duration_seconds": 600
+          }
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Create | grep '"uuid"' | cut -d'"' -f4)
+        
+        if [ -n "$UUID1" ]; then
+          echo "✅ Создан треугольный объект с UUID: $UUID1"
+          echo ""
+          echo "🔍 Анализируем треугольный объект..."
+          {{.GRPCURL}} -plaintext -d "{\"uuid\": \"$UUID1\"}" {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/AnalyzeSighting
+        fi
+        
+        echo ""
+        echo "🛸 Создаем классическую тарелку..."
+        UUID2=$({{.GRPCURL}} -plaintext -d '{
+          "info": {
+            "observed_at": "2024-01-15T22:00:00Z",
+            "location": "Москва",
+            "description": "Классическая летающая тарелка в форме диска",
+            "color": "белый",
+            "sound": true,
+            "duration_seconds": 180
+          }
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Create | grep '"uuid"' | cut -d'"' -f4)
+        
+        if [ -n "$UUID2" ]; then
+          echo "✅ Создана классическая тарелка с UUID: $UUID2"
+          echo ""
+          echo "🔍 Анализируем классическую тарелку..."
+          {{.GRPCURL}} -plaintext -d "{\"uuid\": \"$UUID2\"}" {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/AnalyzeSighting
+        fi
+        
+        echo ""
+        echo "🛸 Создаем сферический объект..."
+        UUID3=$({{.GRPCURL}} -plaintext -d '{
+          "info": {
+            "observed_at": "2024-01-15T23:00:00Z",
+            "location": "Екатеринбург",
+            "description": "Светящийся сферический объект",
+            "color": "оранжевый",
+            "sound": false,
+            "duration_seconds": 45
+          }
+        }' {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/Create | grep '"uuid"' | cut -d'"' -f4)
+        
+        if [ -n "$UUID3" ]; then
+          echo "✅ Создан сферический объект с UUID: $UUID3"
+          echo ""
+          echo "🔍 Анализируем сферический объект..."
+          {{.GRPCURL}} -plaintext -d "{\"uuid\": \"$UUID3\"}" {{.GRPC_SERVER_ADDR}} ufo.v1.UFOService/AnalyzeSighting
+        fi
+        
+        echo ""
+        echo "✅ Полный цикл тестирования трейсинга завершен!"
+        echo "🔗 Откройте Jaeger UI: http://localhost:16686"
+        echo "🔍 Выберите сервис 'ufo-service' и найдите трейсы"
+
+  tracing:check-services:
+    desc: "Проверяет доступность сервисов в Jaeger"
+    cmds:
+      - echo "🔍 Проверяем доступные сервисы в Jaeger..."
+      - |
+        if curl -s http://localhost:16686/api/services > /dev/null; then
+          echo "✅ Jaeger доступен"
+          echo "📊 Доступные сервисы:"
+          curl -s http://localhost:16686/api/services | jq -r '.data[]' 2>/dev/null || curl -s http://localhost:16686/api/services
+        else
+          echo "❌ Jaeger недоступен на http://localhost:16686"
+          echo "💡 Запустите: task up-all"
+        fi
+
+  tracing:open-jaeger:
+    desc: "Открывает Jaeger UI в браузере"
+    cmds:
+      - echo "🌐 Открываем Jaeger UI..."
+      - |
+        open http://localhost:16686 || echo "💡 Откройте вручную: http://localhost:16686"
